@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import argparse
 import asyncio
 import configparser
 import ipaddress
@@ -9,7 +8,6 @@ import logging
 import os
 import sys
 
-from jinja2 import Environment, FileSystemLoader
 
 INITIAL_DIR = CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
 # Если установлена переменная окружения _MEIPASS, программа запущена
@@ -38,7 +36,6 @@ config.read(config_file)
 bind, port = config.get("general", "listen", fallback="0.0.0.0:14550").split(":")
 remote_host, remote_port = config.get("general", "remote", fallback="127.0.0.1:12200").split(":")
 schema = config.get("general", "schema", fallback="")
-template = config.get("general", "template", fallback="")
 
 try:
     # Проверить правильность ip-адресов и портов
@@ -56,17 +53,11 @@ try:
         schema = ""
         logging.warning("Schema not defined")
 
-    # Если задан файл с шаблоном, загрузить его в template
-    if config.get("general", "template", fallback=""):
-        environment = Environment(loader=FileSystemLoader("./"))
-        template = environment.get_template(config.get("general", "template", fallback=""))
-    else:
-        template = ""
-        logging.warning("Template not defined")
 
 except (FileNotFoundError, ValueError) as err:
     logging.error(err)
     sys.exit(1)
+
 
 class ProxyDatagramProtocol(asyncio.DatagramProtocol):
     def __init__(self, remote_address):
@@ -84,13 +75,6 @@ class ProxyDatagramProtocol(asyncio.DatagramProtocol):
             if schema:
                 jsonschema.validate(instance=json.loads(data.decode()), schema=schema)
                 logging.debug("Data is validated")
-            # Если задан шаблон, выполнить трансформацию data в сооответствии с template
-            if template:
-                msg = json.loads(data.decode())
-                # Передать в шаблонизатор kwargs из принятого сообщения
-                # NB! Схема входных и шаблон выходных данных должны быть согласованы по названиям параметров
-                data = str.encode(template.render(**msg))
-                logging.info(data)
 
             if addr in self.remotes:
                 self.remotes[addr].transport.sendto(data)
