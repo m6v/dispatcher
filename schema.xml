@@ -1,0 +1,28 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="person">
+    <xs:complexType>
+      <!-- Если важна последовательность, то sequence, если нет, то all -->
+      <xs:sequence>
+        <xs:element name="id" type="xs:integer"/>
+        <xs:element name="name">
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <!-- Только английские символы и пробелы -->
+              <xs:pattern value="[a-zA-Z ]*"/>
+              <xs:minLength value="10"/>
+              <xs:maxLength value="20"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:element>
+        <xs:element name="age">
+          <xs:simpleType>
+            <xs:restriction base="xs:integer">
+              <xs:minInclusive value="18"/>
+              <xs:maxInclusive value="100"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

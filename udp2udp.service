@@ -1,0 +1,13 @@
+[Unit]
+Description=UDP Proxy Server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/home/admsec/Workspace/dispatcher/udp2udp.py -s /home/admsec/Workspace/dispatcher/schema.json -t /home/admsec/Workspace/dispatcher/template.xml
+Restart=on-failure
+RestartSec=15
+CapabilitiesParsec=PARSEC_CAP_PRIV_SOCK
+
+[Install]
+WantedBy=multi-user.target
