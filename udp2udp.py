@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 import asyncio
 import configparser
+import functools
 from ipaddress import ip_address
 import json
 import jsonschema
 import logging
 import os
 import sys
-
 
 INITIAL_DIR = CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
 # Если установлена переменная окружения _MEIPASS, программа запущена
@@ -22,6 +22,20 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
     datefmt='%Y-%m-%d %H:%M:%S')
 
+def validator(schema: str):
+    jschema = functools.partial(jsonschema.validate, schema=schema)
+    def validate(data: str) -> bool:
+        try:
+            jschema(instance=json.loads(data.decode()))
+            logging.debug("Validation is successful")
+            return True
+        except json.decoder.JSONDecodeError as err:
+            logging.info(f"Data format error: {err}")
+        except jsonschema.exceptions.ValidationError as err:
+            logging.info(f"Data validation error: {err.message}")
+        return False
+    return validate
+
 config = configparser.ConfigParser(allow_no_value=True)
 # Установить чувствительность ключей к регистру
 config.optionxform = str
@@ -29,9 +43,10 @@ config.optionxform = str
 # Если путь не задан, использовать путь исполняемого файла
 config_file = os.path.join(INITIAL_DIR, "udp2udp.conf")
 logging.debug(f"Reading config file {config_file}")
-# Используем config.read_file, т.к. config.read не выбрасывает исключения при отсутствии файла
 try:
     with open(config_file) as f:
+        # Используем config.read_file, т.к. config.read
+        # не выбрасывает исключения при отсутствии файла
         config.read_file(f)
 except FileNotFoundError as err:
     logging.error(err)
@@ -45,18 +60,21 @@ except (configparser.NoOptionError, ValueError) as err:
     logging.error(err)
     sys.exit(1)
 
-try:
-    # Если задан файл со схемой данных, прочитать ее в schema
-    if config.get("general", "schema", fallback=""):
+# Если задан файл со схемой данных, прочитать ее в schema
+if config.get("general", "schema", fallback=""):
+    try:
         with open(config.get("general", "schema", fallback="")) as f:
             schema = json.load(f)
         logging.debug(schema)
-    else:
-        schema = ""
-        logging.warning("Schema not defined")
-except (FileNotFoundError) as err:
-    logging.error(err)
-    sys.exit(1)
+        validate = validator(schema)
+    except (FileNotFoundError) as err:
+        logging.error(err)
+        sys.exit(1)
+else:
+    logging.warning("Schema not defined")
+    # Схема не задана, поэтому validate всегда возвращает True
+    validate = lambda x: True
+
 
 
 class ProxyDatagramProtocol(asyncio.DatagramProtocol):
@@ -70,25 +88,19 @@ class ProxyDatagramProtocol(asyncio.DatagramProtocol):
 
     def datagram_received(self, data, addr):
         logging.info(f"Proxy datagram received: {data}")
-        try:
-            # Если задана схема данных, выполнить валидацию data
-            if schema:
-                jsonschema.validate(instance=json.loads(data.decode()), schema=schema)
-                logging.debug("Data is validated")
 
-            if addr in self.remotes:
-                self.remotes[addr].transport.sendto(data)
+        if not validate(data):
                 return
-            loop = asyncio.get_event_loop()
-            self.remotes[addr] = RemoteDatagramProtocol(self, addr, data)
-            coro = loop.create_datagram_endpoint(
-                lambda: self.remotes[addr], remote_addr=self.remote_address)
-            asyncio.ensure_future(coro)
 
-        except json.decoder.JSONDecodeError as err:
-            logging.info(f"Data format error: {err}")
-        except jsonschema.exceptions.ValidationError as err:
-            logging.info(f"Data validation error: {err.message}")
+        if addr in self.remotes:
+            self.remotes[addr].transport.sendto(data)
+            return
+
+        loop = asyncio.get_event_loop()
+        self.remotes[addr] = RemoteDatagramProtocol(self, addr, data)
+        coro = loop.create_datagram_endpoint(
+            lambda: self.remotes[addr], remote_addr=self.remote_address)
+        asyncio.ensure_future(coro)
 
 
 class RemoteDatagramProtocol(asyncio.DatagramProtocol):
@@ -118,6 +130,12 @@ async def start_datagram_proxy(bind: str, port: int, remote_host: str, remote_po
 
 
 def main():
+    # https://stackoverflow.com/questions/73361664/asyncio-get-event-loop-deprecationwarning-there-is-no-current-event-loop
+    # Начиная с Python 3.11 asyncio.get_event_loop() считается устаревшей и
+    # в некоторых ситуациях может приводить к ошибкам, лучше использовать
+    # loop = asyncio.new_event_loop()
+    # asyncio.set_event_loop(loop)
+    # а также разобраться с заменой loop.run_until_complete()
     loop = asyncio.get_event_loop()
     logging.info("Starting datagram proxy...")
     # Передать адреса через ip_address, чтобы при неправильном формате вызвать исключение ValueError

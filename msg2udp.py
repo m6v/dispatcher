@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import asyncio
 import json
 import logging
 import socket
@@ -30,8 +31,23 @@ except IndexError:
 
 data = str.encode(json.dumps(msg))
 logging.info(f"Send {data}")
+
+# Реализация отправки udp датаграмм с помощью asyncio
+async def send_datagram():
+    # в local_addr можно задавать конкретный порт, 0 - выбирается случайно из незанятых
+    transport, protocol = await asyncio.get_event_loop().create_datagram_endpoint(
+        asyncio.DatagramProtocol,
+        local_addr=('127.0.0.1', 0)
+    )
+    transport.sendto(data, ('127.0.0.1', 14550))
+
+
+asyncio.run(send_datagram())
+
+'''
 UDPClientSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
 UDPClientSocket.sendto(data, addr)
 
 data = UDPClientSocket.recvfrom(bufferSize)
 logging.info(f"Recieve {data[0]}")
+'''

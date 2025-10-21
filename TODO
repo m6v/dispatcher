@@ -1,2 +1,4 @@
 1. Сделать два разных валидатора json и xml, чтобы можно было задавать их в настройках
-
+2. Изучить асинхронную реализацию сетевых протоколов https://docs-python.ru/standart-library/modul-asyncio-python/transport-protokoly-modulja-asyncio/
+3. Разобраться с предупреждением DeprecationWarning: There is no current event loop
+ loop = asyncio.get_event_loop()

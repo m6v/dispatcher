@@ -61,3 +61,25 @@ echo '{"id": 1, "name": "Sergey Maksimov", "age": 52}' > /dev/udp/127.0.0.1/1455
 
 Захват пакетов
 tcpdump -i lo udp port 14550 or port 12200
+
+
+# asyncio.get_event_loop(): DeprecationWarning: There is no current event loop
+
+Your code will run on Python3.10 but as of 3.11 it will be an error to call asyncio.get_event_loop when there is no running loop in the current thread. Since you need loop as an argument to amain, apparently, you must explicitly create and set it.
+It is better to launch your main task with asyncio.run than loop.run_forever, unless you have a specific reason for doing it that way. [But see below]
+Try this:
+if __name__ == '__main__':
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        asyncio.run(amain(loop=loop))
+    except KeyboardInterrupt:
+        pass
+Added April 15, 2023:
+There is a difference between calling asyncio.run(), which I have done here, and calling loop.run_forever() (as in the original question) or loop.run_until_complete(). When I wrote this answer I did not realize that asyncio.run() always creates a new event loop. Therefore in my code above, the variable loop that is passed to amain will not become the "running loop." So my code avoids the DeprecationWarning/RuntimeException, but it doesn't pass a useful loop into amain.
+To correct that, replace the line
+asyncio.run(amain(loop=loop))
+with
+loop.run_until_complete(amain(loop=loop))
+It would be best to modify amain to obtain the running event loop inside the function instead of passing it in. Then you could launch the program with asyncio.run. But if amain cannot be changed that won't be possible.
+Note that run_until_complete, unlike asyncio.run, does not clean up async generators. This is documented in the standard docs.
