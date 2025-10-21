@@ -128,14 +128,14 @@ async def start_datagram_proxy(bind: str, port: int, remote_host: str, remote_po
     return await loop.create_datagram_endpoint(
         lambda: protocol, local_addr=(bind, port))
 
-
 def main():
     # https://stackoverflow.com/questions/73361664/asyncio-get-event-loop-deprecationwarning-there-is-no-current-event-loop
+    # https://bobbyhadz.com/blog/deprecationwarning-there-is-no-current-event-loop
     # Начиная с Python 3.11 asyncio.get_event_loop() считается устаревшей и
     # в некоторых ситуациях может приводить к ошибкам, лучше использовать
     # loop = asyncio.new_event_loop()
     # asyncio.set_event_loop(loop)
-    # а также разобраться с заменой loop.run_until_complete()
+    # TODO Посмотреть как будет работать в Астре 1.7, а также разобраться с loop.run_until_complete()
     loop = asyncio.get_event_loop()
     logging.info("Starting datagram proxy...")
     # Передать адреса через ip_address, чтобы при неправильном формате вызвать исключение ValueError
