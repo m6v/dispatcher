@@ -2,25 +2,11 @@
 import functools
 import jsonschema
 import logging
+import sys
 from lxml import etree
 
 # Для логирования в файл, добавить filename='app.log' иначе лог в консоль
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s %(message)s", datefmt='%Y-%m-%d %H:%M:%S')
-
-msg = """
-<personlist>
-  <person>
-    <id>1</id>
-    <name>Sergey Maksimov</name>
-    <age>52</age>
-  </person>
-  <person>
-    <id>2</id>
-    <name>Ivan Petrov</name>
-    <age>22</age>
-  </person>
-</personlist>
-"""
 
 def validator(schema: str):
     '''Вернуть функцию валидации xml-схемы, заданной в файле schema'''
@@ -40,6 +26,15 @@ def validator(schema: str):
 
 def main():
     validate = validator("schema.xml")
+
+    try:
+        with open("person.msg") as f:
+            msg = f.read()
+            # print(f.read())
+    except FileNotFoundError as err:
+        logging.error(err)
+        sys.exit(1)
+
     validate(msg)
 
 

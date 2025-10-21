@@ -1,24 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
-<xs:element name="personlist">
-  <xs:complexType>
-    <xs:sequence>
+<xs:element name="message" type="messageType"/>
+
+  <xs:complexType name="messageType">
+    <!-- Здесь задаются возможные типы сообщений-->
+    <xs:choice>
       <xs:element name="person" type="personType" maxOccurs="2"/>
-    </xs:sequence>
+      <xs:element name="signal_type" type="signal_typeType" maxOccurs="2"/>
+    </xs:choice>
   </xs:complexType>
-</xs:element>
 
   <xs:complexType name="personType">
     <!-- Если важна последовательность, то sequence, если нет, то all -->
     <xs:sequence>
 
       <xs:element name="id" type="xs:integer"/>
+      <xs:element name="datetime" type="xs:dateTime"/>
 
       <xs:element name="name">
         <xs:simpleType>
           <xs:restriction base="xs:string">
-            <!-- Только английские символы и пробелы -->
             <xs:pattern value="[a-zA-Z ]*"/>
             <xs:minLength value="10"/>
             <xs:maxLength value="20"/>
@@ -26,7 +28,7 @@
         </xs:simpleType>
       </xs:element>
 
-      <xs:element name="age">
+      <xs:element name="age" minOccurs="0">
         <xs:simpleType>
           <xs:restriction base="xs:integer">
             <xs:minInclusive value="18"/>
@@ -34,9 +36,90 @@
           </xs:restriction>
         </xs:simpleType>
       </xs:element>
+      
+      <xs:element name="comment" type="xs:string" minOccurs="0" maxOccurs="unbounded">
+      </xs:element>
 
     </xs:sequence>
 
+  </xs:complexType>
+
+  <!-- Структура сообщения oki_rrs из протокола ИТВ ОПК-32Д2М-2 с ЦОХД-->
+  <xs:complexType name="referenceType">
+    <xs:sequence>
+    <xs:element name="id" type="xs:string" minOccurs="0" maxOccurs="1"/>
+    <xs:element name="name" type="xs:string" minOccurs="0" maxOccurs="1"/>
+    <xs:element name="dict_id" type="xs:string" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+  
+  <xs:complexType name="coordType">
+    <xs:sequence>
+    <xs:element name="lat" type="xs:double" minOccurs="0" maxOccurs="1"/>
+    <xs:element name="lon" type="xs:double" minOccurs="0" maxOccurs="1"/>
+    <xs:element name="sko" type="xs:double" minOccurs="0" maxOccurs="1"/>
+    <xs:element name="ellipse" type="ellipseType" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="geoType">
+    <xs:sequence>
+    <xs:element name="dt" type="xs:dateTime" minOccurs="0"/>
+    <xs:element name="type" type="xs:string"/>
+    <xs:element name="coord" type="coordType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="ellipseType">
+    <xs:sequence>
+    <xs:element name="a" type="xs:double"/>
+    <xs:element name="b" type="xs:double"/>
+    <xs:element name="angle" type="xs:double"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="signal_typeType">
+    <xs:sequence>
+    <xs:element name="value" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="infoType">
+    <xs:sequence>
+    <xs:element name="or_group" type="xs:string" minOccurs="0"/>
+    <xs:element name="disposition" type="xs:string" minOccurs="0"/>
+    <xs:element name="is_military" type="xs:boolean" minOccurs="0"/>
+    <xs:element name="is_mobile" type="xs:boolean" minOccurs="0"/>
+    <xs:element name="name" type="xs:string" minOccurs="0"/>
+    <xs:element name="callname" type="xs:string" minOccurs="0"/>
+    <xs:element name="old_callnames" type="xs:string" minOccurs="0"/>
+    <xs:element name="country" type="referenceType" minOccurs="0"/>
+    <xs:element name="mode3a" type="xs:string" minOccurs="0"/>
+    <xs:element name="icao" type="xs:string" minOccurs="0"/>
+    <xs:element name="mmsi" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="iriType">
+    <xs:sequence>
+    <xs:element name="type" type="xs:string"/>
+    <xs:element name="dt" type="xs:dateTime"/>
+    <xs:element name="akdi" type="referenceType"/>
+    <xs:element name="info" type="infoType"/>
+    <xs:element name="geo" type="geoType" minOccurs="0" maxOccurs="unbounded"/>
+    <xs:element name="kk" type="xs:string" minOccurs="0"/>
+    <xs:element name="blank" type="xs:integer" minOccurs="0"/>
+    <xs:element name="signal_type" type="referenceType" minOccurs="0"/>
+    <xs:element name="file_id" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="objectType">
+    <xs:sequence>
+    <xs:element name="id" type="xs:string" minOccurs="0"/>
+    <xs:element name="kod" type="referenceType" minOccurs="0"/>
+    <xs:element name="iri" type="iriType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
   </xs:complexType>
 
 </xs:schema>
