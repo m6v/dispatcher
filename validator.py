@@ -8,11 +8,18 @@ from lxml import etree
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s %(message)s", datefmt='%Y-%m-%d %H:%M:%S')
 
 msg = """
-<person>
-  <id>1</id>
-  <name>Sergey Maksimov</name>
-  <age>22</age>
-</person>
+<personlist>
+  <person>
+    <id>1</id>
+    <name>Sergey Maksimov</name>
+    <age>52</age>
+  </person>
+  <person>
+    <id>2</id>
+    <name>Ivan Petrov</name>
+    <age>22</age>
+  </person>
+</personlist>
 """
 
 def validator(schema: str):

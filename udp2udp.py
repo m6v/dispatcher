@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import asyncio
 import configparser
-import ipaddress
+from ipaddress import ip_address
 import json
 import jsonschema
 import logging
@@ -17,33 +17,35 @@ if hasattr(sys, "_MEIPASS"):
     INITIAL_DIR = os.path.dirname(sys.executable)
 
 # Для логирования в файл, добавить параметр filename, иначе лог в консоль
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s %(message)s", datefmt='%Y-%m-%d %H:%M:%S')
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s %(levelname)s %(message)s",
+    datefmt='%Y-%m-%d %H:%M:%S')
 
-# Если путь не задан, использовать путь исполняемого файла
-config_file = os.path.join(INITIAL_DIR, "udp2udp.conf")
-if not os.path.exists(config_file):
-    logging.error("Config file %s not found" % config_file)
-    sys.exit(1)
-
-logging.debug("Reading config file %s" % config_file)
 config = configparser.ConfigParser(allow_no_value=True)
 # Установить чувствительность ключей к регистру
 config.optionxform = str
-# При несуществующем config_file не выбрасывает никаких исключений,
-# поэтому проверку наличия файла проверили заранее
-config.read(config_file)
 
-bind, port = config.get("general", "listen", fallback="0.0.0.0:14550").split(":")
-remote_host, remote_port = config.get("general", "remote", fallback="127.0.0.1:12200").split(":")
-schema = config.get("general", "schema", fallback="")
+# Если путь не задан, использовать путь исполняемого файла
+config_file = os.path.join(INITIAL_DIR, "udp2udp.conf")
+logging.debug(f"Reading config file {config_file}")
+# Используем config.read_file, т.к. config.read не выбрасывает исключения при отсутствии файла
+try:
+    with open(config_file) as f:
+        config.read_file(f)
+except FileNotFoundError as err:
+    logging.error(err)
+    sys.exit(1)
 
 try:
-    # Проверить правильность ip-адресов и портов
-    ipaddress.ip_address(bind)
-    ipaddress.ip_address(remote_host)
-    port = int(port)
-    remote_port = int(remote_port)
+    bind, port = config.get("general", "listen").split(":")
+    remote_host, remote_port = config.get("general", "remote").split(":")
+    schema = config.get("general", "schema", fallback="")
+except (configparser.NoOptionError, ValueError) as err:
+    logging.error(err)
+    sys.exit(1)
 
+try:
     # Если задан файл со схемой данных, прочитать ее в schema
     if config.get("general", "schema", fallback=""):
         with open(config.get("general", "schema", fallback="")) as f:
@@ -52,9 +54,7 @@ try:
     else:
         schema = ""
         logging.warning("Schema not defined")
-
-
-except (FileNotFoundError, ValueError) as err:
+except (FileNotFoundError) as err:
     logging.error(err)
     sys.exit(1)
 
@@ -110,17 +110,18 @@ class RemoteDatagramProtocol(asyncio.DatagramProtocol):
         self.proxy.remotes.pop(self.attr)
 
 
-async def start_datagram_proxy(bind, port, remote_host, remote_port):
+async def start_datagram_proxy(bind: str, port: int, remote_host: str, remote_port: int):
     loop = asyncio.get_event_loop()
     protocol = ProxyDatagramProtocol((remote_host, remote_port))
     return await loop.create_datagram_endpoint(
         lambda: protocol, local_addr=(bind, port))
 
 
-def main(bind='0.0.0.0', port=14550, remote_host='127.0.0.1', remote_port=12200):
+def main():
     loop = asyncio.get_event_loop()
     logging.info("Starting datagram proxy...")
-    coro = start_datagram_proxy(bind, port, remote_host, remote_port)
+    # Передать адреса через ip_address, чтобы при неправильном формате вызвать исключение ValueError
+    coro = start_datagram_proxy(str(ip_address(bind)), int(port), str(ip_address(remote_host)), int(remote_port))
     transport, _ = loop.run_until_complete(coro)
     logging.info("Datagram proxy is running...")
     try:
@@ -133,4 +134,4 @@ def main(bind='0.0.0.0', port=14550, remote_host='127.0.0.1', remote_port=12200)
 
 
 if __name__ == '__main__':
-    main(bind, port, remote_host, remote_port)
+    main()
