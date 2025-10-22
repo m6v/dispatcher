@@ -1,10 +1,10 @@
 [Unit]
-Description=UDP Proxy Server
+Description=UDP Proxy Server with Messages Validation
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/home/admsec/Workspace/dispatcher/udp2udp.py -s /home/admsec/Workspace/dispatcher/schema.json -t /home/admsec/Workspace/dispatcher/template.xml
+ExecStart=/opt/dispatcher/udp2udp.py
 Restart=on-failure
 RestartSec=15
 CapabilitiesParsec=PARSEC_CAP_PRIV_SOCK
