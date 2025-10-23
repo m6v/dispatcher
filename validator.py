@@ -1,19 +1,48 @@
-#!/usr/bin/env python3
 import functools
+import json
 import jsonschema
 import logging
 import sys
+import os
+
 from lxml import etree
 
-# Для логирования в файл, добавить filename='app.log' иначе лог в консоль
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s %(message)s", datefmt='%Y-%m-%d %H:%M:%S')
+def json_validator(schema: str):
+    if not schema:
+        logging.warning("Schema not defined")
+        # Если схема не задана возвращать True, т.е. валидация сообщений не выполняется
+        validate = lambda x: True
+        return validate
+    try:
+        with open(schema) as file:
+            jschema = functools.partial(jsonschema.validate, schema=json.load(file))
+    except (FileNotFoundError, json.decoder.JSONDecodeError) as err:
+        logging.error(err)
+        sys.exit(1)
 
-def validator(schema: str):
-    '''Вернуть функцию валидации xml-схемы, заданной в файле schema'''
-    xmlschema = etree.XMLSchema(etree.parse(schema))
-    def validate(msg: str) -> bool:
+    def validate(data: str) -> bool:
         try:
-            xmlschema.assertValid(etree.fromstring(msg))
+            jschema(instance=json.loads(data.decode()))
+            logging.debug("Validation is successful")
+            return True
+        except json.decoder.JSONDecodeError as err:
+            logging.info(f"Data format error: {err}")
+        except jsonschema.exceptions.ValidationError as err:
+            logging.info(f"Data validation error: {err.message}")
+        return False
+    return validate
+
+def xml_validator(schema: str):
+    '''Вернуть функцию валидации xml-схемы, заданной в файле schema'''
+    try:
+        xmlschema = etree.XMLSchema(etree.parse(schema))
+    except etree.XMLSyntaxError as err:
+        logging.error(err)
+        sys.exit(1)
+
+    def validate(data: str) -> bool:
+        try:
+            xmlschema.assertValid(etree.fromstring(data))
             logging.debug("Validation is successful")
             return True
         except etree.DocumentInvalid:
@@ -23,20 +52,3 @@ def validator(schema: str):
             logging.warning(err)
         return False
     return validate
-
-def main():
-    validate = validator("schema.xml")
-
-    try:
-        with open("person.msg") as f:
-            msg = f.read()
-            # print(f.read())
-    except FileNotFoundError as err:
-        logging.error(err)
-        sys.exit(1)
-
-    validate(msg)
-
-
-if __name__ == "__main__":
-    main()

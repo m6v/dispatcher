@@ -9,6 +9,8 @@ import logging
 import os
 import sys
 
+import validator
+
 INITIAL_DIR = CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
 # Если установлена переменная окружения _MEIPASS, программа запущена
 # из временного каталога, созданного при распаковке бандла
@@ -32,33 +34,16 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
     datefmt='%Y-%m-%d %H:%M:%S')
 
-
-def validator(schema: str):
-    jschema = functools.partial(jsonschema.validate, schema=schema)
-
-    def validate(data: str) -> bool:
-        try:
-            jschema(instance=json.loads(data.decode()))
-            logging.debug("Validation is successful")
-            return True
-        except json.decoder.JSONDecodeError as err:
-            logging.info(f"Data format error: {err}")
-        except jsonschema.exceptions.ValidationError as err:
-            logging.info(f"Data validation error: {err.message}")
-        return False
-    return validate
-
-
 config = configparser.ConfigParser(allow_no_value=True)
 # Установить чувствительность ключей к регистру
 config.optionxform = str
 
 logging.debug(f"Reading config file {config_file}")
 try:
-    with open(config_file) as f:
+    with open(config_file) as file:
         # Используем config.read_file, т.к. config.read
         # не выбрасывает исключения при отсутствии файла
-        config.read_file(f)
+        config.read_file(file)
 except FileNotFoundError as err:
     logging.error(err)
     sys.exit(1)
@@ -66,25 +51,11 @@ except FileNotFoundError as err:
 try:
     bind, port = config.get("general", "listen").split(":")
     remote_host, remote_port = config.get("general", "remote").split(":")
-    schema = config.get("general", "schema", fallback="")
+    # Если работа без валидации сообщений не допускается, убрать fallback=""
+    validate = validator.xml_validator(config.get("general", "schema", fallback=""))
 except (configparser.NoOptionError, ValueError) as err:
     logging.error(err)
     sys.exit(1)
-
-# Если задан файл со схемой данных, прочитать ее в schema
-if config.get("general", "schema", fallback=""):
-    try:
-        with open(config.get("general", "schema", fallback="")) as f:
-            schema = json.load(f)
-        logging.debug(schema)
-        validate = validator(schema)
-    except (FileNotFoundError) as err:
-        logging.error(err)
-        sys.exit(1)
-else:
-    logging.warning("Schema not defined")
-    # Схема не задана, поэтому validate всегда возвращает True
-    validate = lambda x: True
 
 
 class ProxyDatagramProtocol(asyncio.DatagramProtocol):
@@ -97,9 +68,10 @@ class ProxyDatagramProtocol(asyncio.DatagramProtocol):
         self.transport = transport
 
     def datagram_received(self, data, addr):
-        logging.info(f"Proxy datagram received: {data}")
+        logging.info(f"From {addr[0]}:{addr[1]} received request {data}")
 
         if not validate(data):
+            logging.info("Validation error!")
             return
 
         if addr in self.remotes:
@@ -108,8 +80,7 @@ class ProxyDatagramProtocol(asyncio.DatagramProtocol):
 
         loop = asyncio.get_event_loop()
         self.remotes[addr] = RemoteDatagramProtocol(self, addr, data)
-        coro = loop.create_datagram_endpoint(
-            lambda: self.remotes[addr], remote_addr=self.remote_address)
+        coro = loop.create_datagram_endpoint(lambda: self.remotes[addr], remote_addr=self.remote_address)
         asyncio.ensure_future(coro)
 
 
@@ -125,7 +96,7 @@ class RemoteDatagramProtocol(asyncio.DatagramProtocol):
         self.transport.sendto(self.data)
 
     def datagram_received(self, data, _):
-        logging.info(f"Remote datagram received: {data}")
+        logging.info(f"Received response {data}")
         self.proxy.transport.sendto(data, self.addr)
 
     def connection_lost(self, exc):
@@ -135,8 +106,7 @@ class RemoteDatagramProtocol(asyncio.DatagramProtocol):
 async def start_datagram_proxy(bind: str, port: int, remote_host: str, remote_port: int):
     loop = asyncio.get_event_loop()
     protocol = ProxyDatagramProtocol((remote_host, remote_port))
-    return await loop.create_datagram_endpoint(
-        lambda: protocol, local_addr=(bind, port))
+    return await loop.create_datagram_endpoint(lambda: protocol, local_addr=(bind, port))
 
 
 def main():

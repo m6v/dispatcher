@@ -18,10 +18,10 @@ try:
     # Если стандартный ввод пустой, попытаться открыть файл,
     # заданный в первом аргументе, иначе читать из стандарного ввода
     if sys.stdin.isatty():
-        f = open(sys.argv[1])
+        file = open(sys.argv[1])
     else:
-        f = sys.stdin
-    msg = json.load(f)
+        file = sys.stdin
+    msg = file.read().rstrip()
 except FileNotFoundError:
     logging.error("Файл с сообщением не найден")
     sys.exit(1)
@@ -29,7 +29,7 @@ except IndexError:
     logging.error("Сообщение не задано")
     sys.exit(1)
 
-data = str.encode(json.dumps(msg))
+data = str.encode(msg)
 logging.info(f"Send {data}")
 
 # Реализация отправки udp датаграмм с помощью asyncio
