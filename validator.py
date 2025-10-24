@@ -4,10 +4,14 @@ import jsonschema
 import logging
 import sys
 
+from typing import Callable
 from lxml import etree
 
 
-def validator(schema: str):
+def validator(schema: str) -> Callable:
+    '''Валидатор сообщений из двух замыканий json_validate и xml_validate
+       schema: имя файла с XML- или JSON-схемой сообщения
+    '''
 
     def json_validate(data: str) -> bool:
         try:
@@ -33,28 +37,30 @@ def validator(schema: str):
         return False
 
     if not schema:
+        # Используется в целях отладки, когда схема не задается, и все сообщения считаются валидными
+        # В продакшене отключить дефолтное значение fallback="" у параметра конфигурации "schema"
         logging.warning("Schema not defined")
-        # Если схема не задана возвращать True,
-        # т.е. валидация сообщений не выполняется
-        validate = lambda x: True
+        validate = lambda data: True
         return validate
 
+    logging.debug(f"Try loading {schema} schema...")
     try:
-        logging.debug(f"Try loading {schema} schema...")
-        # Пробуем загрузить XML-схему
+        # Попытка загрузки XML-схемы...
         xmlschema = etree.XMLSchema(etree.parse(schema))
         return xml_validate
     except (FileNotFoundError, OSError) as err:
         logging.error(err)
         sys.exit(1)
     except etree.XMLSyntaxError as err:
-        # XML-схема не загрузилась, пробуем загрузить JSON-схему
+        # Игнорируем исключение, чтобы попробовать загрузить JSON-схему
         logging.debug(err)
-        try:
-            with open(schema) as file:
-                jschema = functools.partial(jsonschema.validate, schema=json.load(file))
-                return json_validate
-        except json.decoder.JSONDecodeError as err:
-            logging.debug(err)
-            logging.error(f"Unknown schema {schema}")
-            sys.exit(1)
+    try:
+        # Попытка загрузки JSON-схемы...
+        with open(schema) as file:
+            jschema = functools.partial(jsonschema.validate, schema=json.load(file))
+            return json_validate
+    except json.decoder.JSONDecodeError as err:
+        # Ни XML-, ни JSON-схема не загрузились
+        logging.debug(err)
+        logging.error(f"Unknown schema {schema}")
+        sys.exit(1)

@@ -42,7 +42,16 @@ async def send_datagram():
     transport.sendto(data, ('127.0.0.1', 14550))
 
 
-asyncio.run(send_datagram())
+# asyncio.run(send_datagram())
+
+
+async def main():
+    send_task = asyncio.create_task(send_datagram())
+    result = await asyncio.wait_for(send_task, timeout=5)
+
+asyncio.run(main())
+
+
 
 '''
 UDPClientSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)

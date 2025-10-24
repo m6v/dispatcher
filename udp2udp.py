@@ -1,48 +1,28 @@
 #!/usr/bin/env python3
 import asyncio
 import configparser
-import functools
 from ipaddress import ip_address
-import json
-import jsonschema
 import logging
 import os
 import sys
 
 import validator
 
-INITIAL_DIR = CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
-# Если установлена переменная окружения _MEIPASS, программа запущена
-# из временного каталога, созданного при распаковке бандла
-if hasattr(sys, "_MEIPASS"):
-    # Путь к временному каталогу взять из sys.executable
-    INITIAL_DIR = os.path.dirname(sys.executable)
 
-app_name = os.path.basename(__file__)
-# Если путь к конфигу не задан, использовать путь исполняемого файла
-if len(sys.argv) == 1:
-    config_file = os.path.join(INITIAL_DIR, f"{os.path.splitext(app_name)[0]}.conf")
-elif len(sys.argv) == 2:
-    config_file = os.path.join(INITIAL_DIR, sys.argv[1])
-else:
-    print(f"Error: Extra parameters are not allowed. Usage: {app_name} [config_file]")
-    sys.exit(1)
+app_dir, app_name = os.path.split(__file__)
+config_file = os.path.join(app_dir, f"{os.path.splitext(app_name)[0]}.conf")
+if len(sys.argv) > 1:
+    config_file = os.path.join(app_dir, sys.argv[1])
 
-# Для логирования в файл, добавить параметр filename, иначе лог в консоль
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s %(levelname)s %(message)s",
     datefmt='%Y-%m-%d %H:%M:%S')
 
 config = configparser.ConfigParser(allow_no_value=True)
-# Установить чувствительность ключей к регистру
-config.optionxform = str
-
-logging.debug(f"Reading config file {config_file}")
+logging.debug(f"Reading config file {config_file}...")
 try:
     with open(config_file) as file:
-        # Используем config.read_file, т.к. config.read
-        # не выбрасывает исключения при отсутствии файла
         config.read_file(file)
 except FileNotFoundError as err:
     logging.error(err)
@@ -52,7 +32,6 @@ try:
     bind, port = config.get("general", "listen").split(":")
     remote_host, remote_port = config.get("general", "remote").split(":")
     # Если работа без валидации сообщений не допускается, убрать fallback=""
-    # validate = validator.xml_validator(config.get("general", "schema", fallback=""))
     validate = validator.validator(config.get("general", "schema", fallback=""))
 except (configparser.NoOptionError, ValueError) as err:
     logging.error(err)
@@ -111,17 +90,14 @@ async def start_datagram_proxy(bind: str, port: int, remote_host: str, remote_po
 
 
 def main():
-    # https://stackoverflow.com/questions/73361664/asyncio-get-event-loop-deprecationwarning-there-is-no-current-event-loop
-    # https://bobbyhadz.com/blog/deprecationwarning-there-is-no-current-event-loop
-    # Начиная с Python 3.11 asyncio.get_event_loop() считается устаревшей и
-    # в некоторых ситуациях может приводить к ошибкам, лучше использовать
-    # loop = asyncio.new_event_loop()
-    # asyncio.set_event_loop(loop)
-    # TODO Посмотреть как будет работать в Астре 1.7, а также разобраться с loop.run_until_complete()
     loop = asyncio.get_event_loop()
     logging.info("Starting datagram proxy...")
-    # Передать адреса через ip_address, чтобы при неправильном формате вызвать исключение ValueError
-    coro = start_datagram_proxy(str(ip_address(bind)), int(port), str(ip_address(remote_host)), int(remote_port))
+    try:
+        # Передать адреса через ip_address, чтобы при неправильном формате вызвать исключение ValueError
+        coro = start_datagram_proxy(str(ip_address(bind)), int(port), str(ip_address(remote_host)), int(remote_port))
+    except ValueError as err:
+        logging.error(err)
+        sys.exit(1)
     transport, _ = loop.run_until_complete(coro)
     logging.info("Datagram proxy is running...")
     try:
