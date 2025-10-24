@@ -3,7 +3,7 @@
     "type": "object",
     "properties": {
         "id": {"type": "integer"},
-        "name": {"type": "string", "minLength": 5, "maxLength": 15},
+        "name": {"type": "string", "pattern": "^[a-zA-Z ]*$", "minLength": 5, "maxLength": 25},
         "age": {"type": "integer", "minimum": 18, "maximum": 120}
     },
     "additionalProperties": false,
