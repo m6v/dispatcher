@@ -52,7 +52,8 @@ try:
     bind, port = config.get("general", "listen").split(":")
     remote_host, remote_port = config.get("general", "remote").split(":")
     # Если работа без валидации сообщений не допускается, убрать fallback=""
-    validate = validator.xml_validator(config.get("general", "schema", fallback=""))
+    # validate = validator.xml_validator(config.get("general", "schema", fallback=""))
+    validate = validator.validator(config.get("general", "schema", fallback=""))
 except (configparser.NoOptionError, ValueError) as err:
     logging.error(err)
     sys.exit(1)

@@ -3,24 +3,13 @@ import json
 import jsonschema
 import logging
 import sys
-import os
 
 from lxml import etree
 
-def json_validator(schema: str):
-    if not schema:
-        logging.warning("Schema not defined")
-        # Если схема не задана возвращать True, т.е. валидация сообщений не выполняется
-        validate = lambda x: True
-        return validate
-    try:
-        with open(schema) as file:
-            jschema = functools.partial(jsonschema.validate, schema=json.load(file))
-    except (FileNotFoundError, json.decoder.JSONDecodeError) as err:
-        logging.error(err)
-        sys.exit(1)
 
-    def validate(data: str) -> bool:
+def validator(schema: str):
+
+    def json_validate(data: str) -> bool:
         try:
             jschema(instance=json.loads(data.decode()))
             logging.debug("Validation is successful")
@@ -30,17 +19,8 @@ def json_validator(schema: str):
         except jsonschema.exceptions.ValidationError as err:
             logging.info(f"Data validation error: {err.message}")
         return False
-    return validate
 
-def xml_validator(schema: str):
-    '''Вернуть функцию валидации xml-схемы, заданной в файле schema'''
-    try:
-        xmlschema = etree.XMLSchema(etree.parse(schema))
-    except etree.XMLSyntaxError as err:
-        logging.error(err)
-        sys.exit(1)
-
-    def validate(data: str) -> bool:
+    def xml_validate(data: str) -> bool:
         try:
             xmlschema.assertValid(etree.fromstring(data))
             logging.debug("Validation is successful")
@@ -51,4 +31,30 @@ def xml_validator(schema: str):
         except etree.XMLSyntaxError as err:
             logging.warning(err)
         return False
-    return validate
+
+    if not schema:
+        logging.warning("Schema not defined")
+        # Если схема не задана возвращать True,
+        # т.е. валидация сообщений не выполняется
+        validate = lambda x: True
+        return validate
+
+    try:
+        logging.debug(f"Try loading {schema} schema...")
+        # Пробуем загрузить XML-схему
+        xmlschema = etree.XMLSchema(etree.parse(schema))
+        return xml_validate
+    except (FileNotFoundError, OSError) as err:
+        logging.error(err)
+        sys.exit(1)
+    except etree.XMLSyntaxError as err:
+        # XML-схема не загрузилась, пробуем загрузить JSON-схему
+        logging.debug(err)
+        try:
+            with open(schema) as file:
+                jschema = functools.partial(jsonschema.validate, schema=json.load(file))
+                return json_validate
+        except json.decoder.JSONDecodeError as err:
+            logging.debug(err)
+            logging.error(f"Unknown schema {schema}")
+            sys.exit(1)
