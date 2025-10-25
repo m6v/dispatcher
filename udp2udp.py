@@ -29,14 +29,14 @@ except FileNotFoundError as err:
     sys.exit(1)
 
 try:
-    bind, port = config.get("general", "listen").split(":")
-    remote_host, remote_port = config.get("general", "remote").split(":")
+    bind, port = config.get("listen", "addr").split(":")
+    remote_host, remote_port = config.get("remote", "addr").split(":")
     # Если работа без валидации сообщений не допускается, убрать fallback=""
-    validate = validator.validator(config.get("general", "schema", fallback=""))
+    validate = validator.validator(config.get("listen", "schema", fallback=""))
+    logging.getLogger().setLevel(getattr(logging, config.get("logging", "loglevel", fallback="INFO")))
 except (configparser.NoOptionError, ValueError) as err:
     logging.error(err)
     sys.exit(1)
-
 
 class ProxyDatagramProtocol(asyncio.DatagramProtocol):
     def __init__(self, remote_address):
@@ -51,7 +51,7 @@ class ProxyDatagramProtocol(asyncio.DatagramProtocol):
         logging.info(f"From {addr[0]}:{addr[1]} received request {data}")
 
         if not validate(data):
-            logging.info("Validation error!")
+            logging.info("Validation error, msg droped")
             return
 
         if addr in self.remotes:
