@@ -28,7 +28,7 @@ except IndexError:
     sys.exit(1)
 
 data = str.encode(msg)
-logging.info(f"Send {data} to server")
+logging.info(f"Send: {data}")
 
 s = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
 s.settimeout(timeout)
@@ -37,7 +37,7 @@ s.send(data)
 
 try:
     response = s.recv(bufferSize)
-    logging.info(f"Recieve {response} from server")
+    logging.info(f"Recieve: {response}")
 except socket.timeout:
     logging.error("Didn't receive data! [Timeout]")
 finally:

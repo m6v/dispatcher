@@ -7,6 +7,8 @@ import sys
 from typing import Callable
 from lxml import etree
 
+class MessageValidationError(Exception):
+    pass
 
 def validator(schema: str) -> Callable:
     '''Валидатор сообщений из двух замыканий json_validate и xml_validate
@@ -22,6 +24,7 @@ def validator(schema: str) -> Callable:
             logging.info(f"Data format error: {err}")
         except jsonschema.exceptions.ValidationError as err:
             logging.info(f"Data validation error: {err.message}")
+            raise MessageValidationError(err.message)
         return False
 
     def xml_validate(data: str) -> bool:
@@ -29,9 +32,10 @@ def validator(schema: str) -> Callable:
             xmlschema.assertValid(etree.fromstring(data))
             logging.debug("Validation is successful")
             return True
-        except etree.DocumentInvalid:
+        except etree.DocumentInvalid as err:
             for error in xmlschema.error_log:
                 logging.warning("%s in line %d" % (error.message.rstrip("."), error.line))
+            raise MessageValidationError(err)
         except etree.XMLSyntaxError as err:
             logging.warning(err)
         return False

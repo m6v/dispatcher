@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import asyncio
 import configparser
-from ipaddress import ip_address
 import logging
 import os
 import sys
@@ -29,11 +28,12 @@ except FileNotFoundError as err:
     sys.exit(1)
 
 try:
-    bind, port = config.get("listen", "addr").split(":")
-    remote_host, remote_port = config.get("remote", "addr").split(":")
+    local_addr = tuple(config.get("local", "addr").split(":"))
+    remote_addr = tuple(config.get("remote", "addr").split(":"))
     # Если работа без валидации сообщений не допускается, убрать fallback=""
-    listen_validate = validator.validator(config.get("listen", "schema", fallback=""))
+    local_validate = validator.validator(config.get("local", "schema", fallback=""))
     remote_validate = validator.validator(config.get("remote", "schema", fallback=""))
+    # Преобразовать параметр loglevel в числовое значение и установить уровень логирования
     logging.getLogger().setLevel(getattr(logging, config.get("logging", "loglevel", fallback="INFO")))
 except (configparser.NoOptionError, ValueError) as err:
     logging.error(err)
@@ -41,8 +41,8 @@ except (configparser.NoOptionError, ValueError) as err:
 
 
 class ProxyDatagramProtocol(asyncio.DatagramProtocol):
-    def __init__(self, remote_address):
-        self.remote_address = remote_address
+    def __init__(self, remote_addr):
+        self.remote_addr = remote_addr
         self.remotes = {}
         super().__init__()
 
@@ -52,16 +52,22 @@ class ProxyDatagramProtocol(asyncio.DatagramProtocol):
     def datagram_received(self, data, addr):
         logging.info(f"From {addr[0]}:{addr[1]} received request {data}")
 
-        if not listen_validate(data):
-            logging.info("Validation error, msg droped")
+        try:
+            local_validate(data)
+        except validator.MessageValidationError as err:
+            logging.info("Request validation error")
+            # Вернуть отправителю сообщение об ошибке валидации
+            self.transport.sendto(str.encode(f"Request validation error: {err}"), addr)
             return
 
         if addr in self.remotes:
             self.remotes[addr].transport.sendto(data)
             return
+        # Если адресата полученного сообщения нет в self.remotes, то добавить его туда
+        # и создать для него новую точку назначения
         loop = asyncio.get_event_loop()
         self.remotes[addr] = RemoteDatagramProtocol(self, addr, data)
-        coro = loop.create_datagram_endpoint(lambda: self.remotes[addr], remote_addr=self.remote_address)
+        coro = loop.create_datagram_endpoint(lambda: self.remotes[addr], remote_addr=self.remote_addr)
         asyncio.ensure_future(coro)
 
 
@@ -76,11 +82,13 @@ class RemoteDatagramProtocol(asyncio.DatagramProtocol):
         self.transport = transport
         self.transport.sendto(self.data)
 
-    def datagram_received(self, data, _):
-        logging.info(f"Received response {data}")
-        # Если нужна валидация входящих сообщений, добавляем ее здесь!
-        if not remote_validate(data):
-            logging.info("Response validation error, msg droped")
+    def datagram_received(self, data, addr):
+        logging.info(f"From {addr[0]}:{addr[1]} received reply {data}")
+
+        try:
+            remote_validate(data):
+        except validator.MessageValidationError as err:
+            logging.info("Reply validation error")
             return
 
         self.proxy.transport.sendto(data, self.addr)
@@ -89,21 +97,16 @@ class RemoteDatagramProtocol(asyncio.DatagramProtocol):
         self.proxy.remotes.pop(self.attr)
 
 
-async def start_datagram_proxy(bind: str, port: int, remote_host: str, remote_port: int):
+async def start_datagram_proxy(local_addr, remote_addr):
     loop = asyncio.get_event_loop()
-    protocol = ProxyDatagramProtocol((remote_host, remote_port))
-    return await loop.create_datagram_endpoint(lambda: protocol, local_addr=(bind, port))
+    protocol = ProxyDatagramProtocol(remote_addr)
+    return await loop.create_datagram_endpoint(lambda: protocol, local_addr=local_addr)
 
 
 def main():
     loop = asyncio.get_event_loop()
     logging.info("Starting datagram proxy...")
-    try:
-        # Передать адреса через ip_address, чтобы при неправильном формате вызвать исключение ValueError
-        coro = start_datagram_proxy(str(ip_address(bind)), int(port), str(ip_address(remote_host)), int(remote_port))
-    except ValueError as err:
-        logging.error(err)
-        sys.exit(1)
+    coro = start_datagram_proxy(local_addr, remote_addr)
     transport, _ = loop.run_until_complete(coro)
     logging.info("Datagram proxy is running...")
     try:
