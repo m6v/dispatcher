@@ -26,7 +26,7 @@ def main(addr="127.0.0.1", port=12200, bufsize=1024):
             name = item.find('name').text
             age = item.find('age').text
             logging.info(f'Get msg id={identifier}, name={name}, age={age}')
-            reply =str.encode(f"<reply1>{identifier}</reply1>")
+            reply =str.encode(f"<reply>{identifier}</reply>")
             UDPServerSocket.sendto(reply, address)
 
 if __name__ == '__main__':

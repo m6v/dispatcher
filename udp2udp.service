@@ -1,12 +1,12 @@
 [Unit]
-Description=UDP Proxy Server with Messages Validation
+Description=UDP Proxy with Messages Validation
 After=network.target
 
 [Service]
 Type=simple
 StandardOutput=append:/var/log/udp2udp.log
 ExecStart=/opt/dispatcher/udp2udp.py
-# Автоматически перезапускать сервис после завершения с ошибкой
+# Автоматически перезапускать после завершения с ошибкой
 Restart=on-failure
 RestartSec=15
 CapabilitiesParsec=PARSEC_CAP_PRIV_SOCK

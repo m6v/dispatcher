@@ -8,26 +8,23 @@ import sys
 import validator
 
 
-app_dir, app_name = os.path.split(__file__)
-config_file = os.path.join(app_dir, f"{os.path.splitext(app_name)[0]}.conf")
-if len(sys.argv) > 1:
-    config_file = os.path.join(app_dir, sys.argv[1])
-
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s %(levelname)s %(message)s",
     datefmt='%Y-%m-%d %H:%M:%S')
 
-config = configparser.ConfigParser(allow_no_value=True)
-logging.debug(f"Reading config file {config_file}...")
-try:
-    with open(config_file) as file:
-        config.read_file(file)
-except FileNotFoundError as err:
-    logging.error(err)
-    sys.exit(1)
+app_dir, app_name = os.path.split(__file__)
+# По умолчанию имя конфигурационного файла app_name.conf в каталоге программы
+# или задается в первом параметре программы
+config_file = os.path.join(app_dir, f"{os.path.splitext(app_name)[0]}.conf")
+if len(sys.argv) > 1:
+    config_file = os.path.join(app_dir, sys.argv[1])
 
 try:
+    config = configparser.ConfigParser(allow_no_value=True)
+    logging.debug(f"Reading config file {config_file}...")
+    with open(config_file) as file:
+        config.read_file(file)
     local_addr = tuple(config.get("local", "addr").split(":"))
     remote_addr = tuple(config.get("remote", "addr").split(":"))
     # Если работа без валидации сообщений не допускается, убрать fallback=""
@@ -35,7 +32,7 @@ try:
     remote_validate = validator.validator(config.get("remote", "schema", fallback=""))
     # Преобразовать параметр loglevel в числовое значение и установить уровень логирования
     logging.getLogger().setLevel(getattr(logging, config.get("logging", "loglevel", fallback="INFO")))
-except (configparser.NoOptionError, ValueError) as err:
+except (FileNotFoundError, ValueError, configparser.NoOptionError) as err:
     logging.error(err)
     sys.exit(1)
 
@@ -67,8 +64,8 @@ class ProxyDatagramProtocol(asyncio.DatagramProtocol):
         # и создать для него новую точку назначения
         loop = asyncio.get_event_loop()
         self.remotes[addr] = RemoteDatagramProtocol(self, addr, data)
-        coro = loop.create_datagram_endpoint(lambda: self.remotes[addr], remote_addr=self.remote_addr)
-        asyncio.ensure_future(coro)
+        endpoint = loop.create_datagram_endpoint(lambda: self.remotes[addr], remote_addr=self.remote_addr)
+        asyncio.ensure_future(endpoint)
 
 
 class RemoteDatagramProtocol(asyncio.DatagramProtocol):
@@ -86,9 +83,9 @@ class RemoteDatagramProtocol(asyncio.DatagramProtocol):
         logging.info(f"From {addr[0]}:{addr[1]} received reply {data}")
 
         try:
-            remote_validate(data):
+            remote_validate(data)
         except validator.MessageValidationError as err:
-            logging.info("Reply validation error")
+            logging.info(f"Reply validation error")
             return
 
         self.proxy.transport.sendto(data, self.addr)
@@ -105,9 +102,8 @@ async def start_datagram_proxy(local_addr, remote_addr):
 
 def main():
     loop = asyncio.get_event_loop()
-    logging.info("Starting datagram proxy...")
-    coro = start_datagram_proxy(local_addr, remote_addr)
-    transport, _ = loop.run_until_complete(coro)
+    endpoint = start_datagram_proxy(local_addr, remote_addr)
+    transport, _ = loop.run_until_complete(endpoint)
     logging.info("Datagram proxy is running...")
     try:
         loop.run_forever()
