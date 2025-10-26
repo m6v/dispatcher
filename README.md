@@ -6,6 +6,7 @@ https://gist.github.com/vxgmichel/b2cf8536363275e735c231caef35a5df
 https://gist.github.com/vxgmichel/e47bff34b68adb3cf6bd4845c4bed448
 https://gist.github.com/giacobenin/e1534638609a0dfb17b91c81da33c023 # Пример работает, но только в одну сторону, обратные сообщения вызывают ошибку, нужно разбираться
 https://github.com/jsbronder/asyncio-dgram/tree/master
+https://anyio.readthedocs.io/en/latest/index.html
 """
 
 Зависимости:

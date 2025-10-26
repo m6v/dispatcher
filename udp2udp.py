@@ -32,11 +32,13 @@ try:
     bind, port = config.get("listen", "addr").split(":")
     remote_host, remote_port = config.get("remote", "addr").split(":")
     # Если работа без валидации сообщений не допускается, убрать fallback=""
-    validate = validator.validator(config.get("listen", "schema", fallback=""))
+    listen_validate = validator.validator(config.get("listen", "schema", fallback=""))
+    remote_validate = validator.validator(config.get("remote", "schema", fallback=""))
     logging.getLogger().setLevel(getattr(logging, config.get("logging", "loglevel", fallback="INFO")))
 except (configparser.NoOptionError, ValueError) as err:
     logging.error(err)
     sys.exit(1)
+
 
 class ProxyDatagramProtocol(asyncio.DatagramProtocol):
     def __init__(self, remote_address):
@@ -50,14 +52,13 @@ class ProxyDatagramProtocol(asyncio.DatagramProtocol):
     def datagram_received(self, data, addr):
         logging.info(f"From {addr[0]}:{addr[1]} received request {data}")
 
-        if not validate(data):
+        if not listen_validate(data):
             logging.info("Validation error, msg droped")
             return
 
         if addr in self.remotes:
             self.remotes[addr].transport.sendto(data)
             return
-
         loop = asyncio.get_event_loop()
         self.remotes[addr] = RemoteDatagramProtocol(self, addr, data)
         coro = loop.create_datagram_endpoint(lambda: self.remotes[addr], remote_addr=self.remote_address)
@@ -77,6 +78,11 @@ class RemoteDatagramProtocol(asyncio.DatagramProtocol):
 
     def datagram_received(self, data, _):
         logging.info(f"Received response {data}")
+        # Если нужна валидация входящих сообщений, добавляем ее здесь!
+        if not remote_validate(data):
+            logging.info("Response validation error, msg droped")
+            return
+
         self.proxy.transport.sendto(data, self.addr)
 
     def connection_lost(self, exc):

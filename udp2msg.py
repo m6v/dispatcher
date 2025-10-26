@@ -19,16 +19,15 @@ def main(addr="127.0.0.1", port=12200, bufsize=1024):
 
         msg = "Message from {}: {}".format(address, data)
         logging.info(msg)
-        '''
+
         root = etree.fromstring(data.decode())
         for item in root.xpath('//person'):
-            identifier = item.find('identifier').text
+            identifier = item.find('id').text
             name = item.find('name').text
             age = item.find('age').text
-            logging.info(f'Get msg {identifier}, {name}, {age}')
-        '''
-
-        UDPServerSocket.sendto(reply, address)
+            logging.info(f'Get msg id={identifier}, name={name}, age={age}')
+            reply =str.encode(f"<reply1>{identifier}</reply1>")
+            UDPServerSocket.sendto(reply, address)
 
 if __name__ == '__main__':
     main()

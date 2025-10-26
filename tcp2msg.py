@@ -16,4 +16,6 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             data = conn.recv(1024)
             if not data:
                 break
-            conn.sendall(data)
+            print(data)
+            #conn.sendall(data)
+            conn.sendall(b"12345")
