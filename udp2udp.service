@@ -9,6 +9,7 @@ ExecStart=/opt/dispatcher/udp2udp.py
 # Автоматически перезапускать после завершения с ошибкой
 Restart=on-failure
 RestartSec=15
+# PDPLabel=1:0:0x0 # Если на выходе пакеты должны иметь уровень конфиденциальности 1
 CapabilitiesParsec=PARSEC_CAP_PRIV_SOCK
 
 [Install]
