@@ -138,7 +138,7 @@ sudo execaps -c 0x100 -- /home/m6v/Workspace/dispatcher/udp2udp.py
 echo '{"id": 1, "name": "Sergey Maksimov", "age": 52}' > /dev/udp/127.0.0.1/14550
 
 Захват пакетов
-tcpdump -i lo udp port 14550 or port 12200
+sudo tcpdump -i any udp port 14550 or port 12200
 
 
 # asyncio.get_event_loop(): DeprecationWarning: There is no current event loop

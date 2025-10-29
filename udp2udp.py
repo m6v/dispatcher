@@ -29,6 +29,9 @@ try:
     remote_addr = tuple(config.get("remote", "addr").split(":"))
     # Если работа без валидации сообщений не допускается, убрать fallback=""
     local_validate = validator.validator(config.get("local", "schema", fallback=""))
+    allowed = config.get("local", "allowed", fallback="").split(";")
+    if allowed[0] == "":
+        allowed = False
     remote_validate = validator.validator(config.get("remote", "schema", fallback=""))
     # Преобразовать параметр loglevel в числовое значение и установить уровень логирования
     logging.getLogger().setLevel(getattr(logging, config.get("logging", "loglevel", fallback="INFO")))
@@ -47,7 +50,11 @@ class ProxyDatagramProtocol(asyncio.DatagramProtocol):
         self.transport = transport
 
     def datagram_received(self, data, addr):
-        logging.info(f"From {addr[0]}:{addr[1]} received request {data}")
+        logging.debug(f"From {addr[0]}:{addr[1]} received request {data}")
+        # Если задан белый список разрешенных адресов, проверить наличие в нем addr[0]
+        if allowed and not addr[0] in allowed:
+            logging.info(f"Request from {addr[0]} droped, because is't in white list")
+            return
 
         try:
             local_validate(data)
@@ -80,7 +87,7 @@ class RemoteDatagramProtocol(asyncio.DatagramProtocol):
         self.transport.sendto(self.data)
 
     def datagram_received(self, data, addr):
-        logging.info(f"From {addr[0]}:{addr[1]} received reply {data}")
+        logging.debug(f"From {addr[0]}:{addr[1]} received reply {data}")
 
         try:
             remote_validate(data)
