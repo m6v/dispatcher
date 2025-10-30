@@ -7,8 +7,10 @@ import sys
 from typing import Callable
 from lxml import etree
 
+
 class MessageValidationError(Exception):
     pass
+
 
 def validator(schema: str) -> Callable:
     '''Валидатор сообщений из двух замыканий json_validate и xml_validate

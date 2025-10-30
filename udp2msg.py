@@ -6,6 +6,7 @@ from lxml import etree
 # Для логирования в файл, добавить параметр filename, иначе лог в консоль
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt='%Y-%m-%d %H:%M:%S')
 
+
 def main(addr="127.0.0.1", port=12200, bufsize=1024):
     reply = str.encode("UDP server recieved message")
 
@@ -26,8 +27,9 @@ def main(addr="127.0.0.1", port=12200, bufsize=1024):
             name = item.find('name').text
             age = item.find('age').text
             logging.info(f'Get msg id={identifier}, name={name}, age={age}')
-            reply =str.encode(f"<reply>{identifier}</reply>")
+            reply = str.encode(f"<reply>{identifier}</reply>")
             UDPServerSocket.sendto(reply, address)
+
 
 if __name__ == '__main__':
     main()

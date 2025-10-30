@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import asyncio
 import configparser
+import ipaddress
 import logging
 import os
 import sys
@@ -25,14 +26,22 @@ try:
     logging.debug(f"Reading config file {config_file}...")
     with open(config_file) as file:
         config.read_file(file)
+
     local_addr = tuple(config.get("local", "addr").split(":"))
     remote_addr = tuple(config.get("remote", "addr").split(":"))
+
     # Если работа без валидации сообщений не допускается, убрать fallback=""
     local_validate = validator.validator(config.get("local", "schema", fallback=""))
-    allowed = config.get("local", "allowed", fallback="").split(";")
-    if allowed[0] == "":
-        allowed = False
     remote_validate = validator.validator(config.get("remote", "schema", fallback=""))
+
+    # Прочитать и заодно проверить белый список адресов
+    if config.has_option("local", "allowed"):
+        allowed = []
+        for addr in config.get("local", "allowed").split(";"):
+            allowed.append(str(ipaddress.ip_address(addr)))
+    else:
+        allowed = False
+
     # Преобразовать параметр loglevel в числовое значение и установить уровень логирования
     logging.getLogger().setLevel(getattr(logging, config.get("logging", "loglevel", fallback="INFO")))
 except (FileNotFoundError, ValueError, configparser.NoOptionError) as err:

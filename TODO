@@ -1,6 +1,7 @@
 1. Сделать в datagram_received возможность использования белых списков подсетей, а не только ip-адресов
-2. Изучить асинхронную реализацию сетевых протоколов https://docs-python.ru/standart-library/modul-asyncio-python/transport-protokoly-modulja-asyncio/
-3. Разобраться с предупреждением DeprecationWarning: There is no current event loop
+2. Сделать опциональное преобразование кодировок передаваемых сообщений
+3. Изучить асинхронную реализацию сетевых протоколов https://docs-python.ru/standart-library/modul-asyncio-python/transport-protokoly-modulja-asyncio/
+4. Если будет использоваться с Python 3.10 и более поздними, то разобраться с предупреждением DeprecationWarning: There is no current event loop
  loop = asyncio.get_event_loop()
     см.:
     https://stackoverflow.com/questions/73361664/asyncio-get-event-loop-deprecationwarning-there-is-no-current-event-loop
@@ -8,4 +9,4 @@
     Начиная с Python 3.11 asyncio.get_event_loop() считается устаревшей и в некоторых ситуациях может приводить к ошибкам, лучше использовать
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    TODO Посмотреть как будет работать в Астре 1.7, а также разобраться с loop.run_until_complete()
+
